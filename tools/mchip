@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Let's figure out our TTY... it's probably a USB/serial adapter
+#
+TTY=`dmesg | grep 'attached to tty' | sed 's/^.*tty/tty/'`
+if [ -z "${TTY}" ]; then
+    # No USB TTY, maybe we're on a Raspberry Pi?
+    grep -q 'Raspberry Pi' /proc/cpuinfo
+    cc=$?
+    if [ $cc -eq 0 ]; then
+        # Let's try the Raspberry Pi serial port
+        TTY=serial0
+    else
+        echo No TTY!
+        exit 25
+    fi
+fi
+TTY=/dev/${TTY}
+
+TERM=ansi
+LC_ALL=C
+CMD="minicom -c on -a on -b 4800 -D ${TTY}"
+if [ "${XDG_SESSION_TYPE}" = "tty" ]; then
+    ${CMD}
+else if [ "${XDG_SESSION_TYPE}" = "x11" ]; then
+    xfce4-terminal -e "${CMD}"
+else
+    echo I don\'t know how to deal with the ${XDG_SESSION_TYPE} session type
+fi
+fi
