@@ -16,3 +16,15 @@ Defaults: start=100, step=10, boundary=1000, output=stdout
 
 mchip - wrapper script around minicom that tries to figure out the TTY
 
+reval - validate and rename BASIC variables
+
+Usage: ./reval [options] inputfile
+
+Options:
+  -o, --output <file>      Output file (default: stdout)
+
+Numeric variables must be one letter or one letter followed by one digit.
+String variables must be one letter followed by `$`.
+Array variables must be one letter.
+
+
