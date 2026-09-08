@@ -1,3 +1,7 @@
+/*******************************************************************************
+* Convert file in PLOAD/PSAVE format back to listing text
+* Validated against 1802 BASIC3 V1.1 on MemberCHIP Card Rev.B
+*******************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -5,6 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <errno.h>
+#include <ctype.h>
 
 #define HEADER_BYTE_CNT 14
 #define NUMBER_BYTE_CNT 4
@@ -13,6 +18,7 @@
 
 static uint8_t read_buffer[16];
 static bool show_header = false;
+static bool debug = false;
 
 // read the next byte
 //
@@ -131,7 +137,19 @@ static char *trim_float_str(char *in) {
 
 // convert byte to keyword
 //
-#define byte_to_keyword(a, b) strcpy((char *)a, b); a+=strlen(b) - 1;
+static uint8_t byte_to_keyword(int8_t *io, char *i, bool prespace) {
+    int8_t incr = 0;
+
+
+    if (prespace && *(io-1) != ' ') { // add leading space if there isn't one
+        *io = ' ';
+        io++;
+        incr++;
+    }
+    strcpy((char *)io, i); 
+    incr += strlen(i) - 1;
+    return incr;
+}
 
 // read and decode each post-header line
 //
@@ -161,15 +179,17 @@ static char *decode_line(FILE *f) {
 
         if (byte_cnt == 1) {
             line_len = *c;
-#if DEBUG
-            printf("\nRead byte %d as length %d\n", byte_cnt, line_len);
-#endif
+            if (debug)
+                printf("\nRead byte %d as length %d\n", byte_cnt, line_len);
             continue; // 1st byte after line # is line length in bytes, including self
         }
 
-#if DEBUG
-        printf("\nRead byte %d as source %02x\n", byte_cnt, *c);
-#endif
+        if (debug) {
+            if (isprint(*c))
+                printf("\nRead byte %d as source %02x (%c)\n", byte_cnt, *c, *c);
+            else
+                printf("\nRead byte %d as source %02x\n", byte_cnt, *c);
+        }
 
         // 0x0d marks end of line
         if (*c == 0x0d) {
@@ -181,217 +201,245 @@ static char *decode_line(FILE *f) {
         // sometimes the byte has side effects
         switch(*c) {
             case 0x80: // REM
-                 byte_to_keyword(c, "REM");
+                 c+=byte_to_keyword(c, "REM", false);
                  break;
 
             case 0x81: // CLS
-                 byte_to_keyword(c, "CLS");
+                 c+=byte_to_keyword(c, "CLS", false);
+                 break;
+
+            case 0x82: // STOP - not MemberCHIP
+                 c+=byte_to_keyword(c, "STOP", false);
                  break;
 
             case 0x83: // RUN
-                 byte_to_keyword(c, "RUN");
+                 // curiously RUN seems to eat a preceeding space
+                 if (*(c-1) == ' ')
+                     c--;
+                 c+=byte_to_keyword(c, "RUN", false);
                  break;
 
             case 0x84: // END
-                 byte_to_keyword(c, "END");
-                 if (line_num == 0xffff)
-                     done = true; // "63335 END" is saved if there isn't an
-                                  // explicit last line with "END", but is
-                                  // not shown by LIST if it is entered
+                 c+=byte_to_keyword(c, "END", false);
+                 done = (line_num == 0xffff);
+                 // "63335 END" is saved if there isn't an explicit last line with "END", but is not shown by LIST if it was entered
                  break;
 
             case 0x85: // LET
-                 byte_to_keyword(c, "LET ");
+                 c+=byte_to_keyword(c, "LET ", false);
                  break;
 
             case 0x86: // PRINT
-                 if (*(c-1) != ' ') { // formatting quirk
-                     *c = ' ';
-                     c++;
-                 }
-                 byte_to_keyword(c, "PRINT ");
+                 c+=byte_to_keyword(c, "PRINT ", true);
                  break;
 
             case 0x87: // GOTO
-                 if (*(c-1) != ' ') { // formatting quirk
-                     *c = ' ';
-                     c++;
-                 }
-                 byte_to_keyword(c, "GOTO ");
+                 c+=byte_to_keyword(c, "GOTO ", true);
                  break;
 
             case 0x88: // IF 
-                 byte_to_keyword(c, "IF ");
+                 c+=byte_to_keyword(c, "IF ", false);
                  break;
 
             case 0x89: // INPUT
-                 byte_to_keyword(c, "INPUT ");
-                 // TODO investigate INPUT msg var format - do we need to force space
-                 // before var?
+                 c+=byte_to_keyword(c, "INPUT ", false);
+                 // INPUT "MSG" A$ shown by LIST as INPUT "MSG"A$
                  break;
 
             case 0x8a: // LIST
-                 byte_to_keyword(c, "LIST ");
+                 c+=byte_to_keyword(c, "LIST ", false);
                  break;
 
             case 0x8b: // GOSUB
-                 byte_to_keyword(c, "GOSUB ");
+                 c+=byte_to_keyword(c, "GOSUB ", false);
                  break;
 
             case 0x8c: // RETURN
-                 byte_to_keyword(c, "RETURN");
+                 c+=byte_to_keyword(c, "RETURN", false);
                  break;
 
             case 0x8d: // WAIT
-                 byte_to_keyword(c, "WAIT ");
+                 c+=byte_to_keyword(c, "WAIT ", false);
                  break;
 
             case 0x8e: // DIM
-                 byte_to_keyword(c, "DIM ");
+                 c+=byte_to_keyword(c, "DIM ", false);
                  break;
 
             case 0x8f: // FOR
-                 byte_to_keyword(c, "FOR ");
+                 c+=byte_to_keyword(c, "FOR ", false);
                  break;
 
             case 0x90: // NEXT
-                 byte_to_keyword(c, "NEXT ");
+                 c+=byte_to_keyword(c, "NEXT ", false);
                  break;
 
             case 0x91: // FIXED
-                 byte_to_keyword(c, "FIXED");
+                 c+=byte_to_keyword(c, "FIXED", false);
                  break;
 
             case 0x92: // POKE
-                 byte_to_keyword(c, "POKE");
+                 c+=byte_to_keyword(c, "POKE", false);
                  break;
 
             case 0x93: // DEG
-                 byte_to_keyword(c, "DEG");
+                 c+=byte_to_keyword(c, "DEG", false);
                  break;
 
             case 0x94: // RAD
-                 byte_to_keyword(c, "RAD");
+                 c+=byte_to_keyword(c, "RAD", false);
                  break;
 
             case 0x95: // STQ
-                 byte_to_keyword(c, "STQ ");
+                 c+=byte_to_keyword(c, "STQ ", false);
                  break;
 
             case 0x96: // DEFINT
-                 byte_to_keyword(c, "DEFINT ");
+                 c+=byte_to_keyword(c, "DEFINT ", false);
                  break;
 
             case 0x97: // PSAVE
-                 byte_to_keyword(c, "PSAVE");
+                 c+=byte_to_keyword(c, "PSAVE", false);
                  break;
 
             case 0x98: // PLOAD
-                 byte_to_keyword(c, "PLOAD");
+                 c+=byte_to_keyword(c, "PLOAD", false);
                  break;
 
             case 0x99: // DEFUS
-                 byte_to_keyword(c, "DEFUS ");
+                 c+=byte_to_keyword(c, "DEFUS ", false);
                  break;
 
             case 0x9a: // EOP
-                 byte_to_keyword(c, "EOP");
+                 c+=byte_to_keyword(c, "EOP", false);
                  break;
 
             case 0x9b: // DATA
-                 byte_to_keyword(c, "DATA ");
+                 c+=byte_to_keyword(c, "DATA ", false);
                  break;
 
             case 0x9c: // READ
-                 byte_to_keyword(c, "READ ");
+                 c+=byte_to_keyword(c, "READ ", false);
                  break;
 
             case 0x9d: // RESTORE
-                 byte_to_keyword(c, "RESTORE");
+                 c+=byte_to_keyword(c, "RESTORE", false);
                  break;
 
             case 0x9e: // EOD
-                 byte_to_keyword(c, "EOD");
+                 c+=byte_to_keyword(c, "EOD", false);
                  break;
 
             case 0x9f: // CLD
-                 byte_to_keyword(c, "CLD");
+                 c+=byte_to_keyword(c, "CLD", false);
+                 break;
+
+            case 0xa0: // SEQ - not MemberCHIP
+                 c+=byte_to_keyword(c, "SEQ", false);
+                 break;
+
+            case 0xa1: // REQ - not MemberCHIP
+                 c+=byte_to_keyword(c, "REQ", false);
                  break;
 
             case 0xa2: // EINT
-                 byte_to_keyword(c, "EINT ");
+                 c+=byte_to_keyword(c, "EINT ", false);
                  break;
 
             case 0xa3: // DISINT
-                 byte_to_keyword(c, "DISINT");
+                 c+=byte_to_keyword(c, "DISINT", false);
                  break;
 
             case 0xa4: // DMAPT
-                 byte_to_keyword(c, "DMAPT ");
+                 c+=byte_to_keyword(c, "DMAPT ", false);
+                 break;
+
+            case 0xa5: // OUT - not MemberCHIP
+                 c+=byte_to_keyword(c, "OUT", false);
+                 break;
+
+            case 0xa6: // INP
+                 c+=byte_to_keyword(c, "INP", false);
                  break;
 
             case 0xa7: // TRACE
-                 byte_to_keyword(c, "TRACE ");
+                 c+=byte_to_keyword(c, "TRACE ", false);
                  break;
 
             case 0xa8: // CALL
-                 byte_to_keyword(c, "CALL");
+                 c+=byte_to_keyword(c, "CALL", false);
+                 break;
+
+            case 0xa9: // MONITOR - not MemberCHIP
+                 c+=byte_to_keyword(c, "MONITOR", false);
+                 break;
+
+            case 0xaa: // NEW
+                 c+=byte_to_keyword(c, "NEW", false);
                  break;
 
             case 0xab: // MEM
-                 byte_to_keyword(c, "MEM");
+                 c+=byte_to_keyword(c, "MEM", false);
+                 break;
+
+            case 0xac: // CLEAR - not MemberCHIP
+                 c+=byte_to_keyword(c, "CLEAR", false);
                  break;
 
             case 0xad: // BYE
-                 byte_to_keyword(c, "BYE");
+                 c+=byte_to_keyword(c, "BYE", false);
                  break;
 
             case 0xae: // EXIT
-                 byte_to_keyword(c, "EXIT");
+                 c+=byte_to_keyword(c, "EXIT", false);
+                 break;
+
+            case 0xaf: // CONT - not MemberCHIP
+                 c+=byte_to_keyword(c, "CONT", false);
+                 break;
+
+            case 0xb0: // AUTO - not MemberCHIP
+                 c+=byte_to_keyword(c, "AUTO", false);
                  break;
 
             case 0xb1: // RENUMBER
-                 byte_to_keyword(c, "RENUMBER ");
+                 c+=byte_to_keyword(c, "RENUMBER ", false);
                  break;
 
             case 0xb2: // EDIT
-                 byte_to_keyword(c, "EDIT ");
+                 c+=byte_to_keyword(c, "EDIT", false);
                  break;
 
             case 0xb3: // FORMAT
-                 byte_to_keyword(c, "FORMAT ");
+                 c+=byte_to_keyword(c, "FORMAT ", false);
+                 break;
+
+            case 0xb4: // USING - not MemberCHIP
+                 c+=byte_to_keyword(c, "USING", false);
                  break;
 
             case 0xb5: // AND
-                 if (*(c-1) != ' ') { // formatting quirk
-                     *c = ' ';
-                     c++;
-                 }
-                 byte_to_keyword(c, "AND ");
+                 c+=byte_to_keyword(c, "AND ", true);
                  break;
 
             case 0xb6: // XOR
-                 if (*(c-1) != ' ') { // formatting quirk
-                     *c = ' ';
-                     c++;
-                 }
-                 byte_to_keyword(c, "XOR ");
+                 c+=byte_to_keyword(c, "XOR ", true);
                  break;
 
             case 0xb7: // OR
-                 if (*(c-1) != ' ') { // formatting quirk
-                     *c = ' ';
-                     c++;
-                 }
-                 byte_to_keyword(c, "OR ");
+                 c+=byte_to_keyword(c, "OR ", true);
+                 break;
+
+            case 0xb8: // NOT logical - not MemberCHIP
+                 c+=byte_to_keyword(c, "NOT ", true);
                  break;
 
             case 0xb9: // CHR$
-                 byte_to_keyword(c, "CHR$");
+                 c+=byte_to_keyword(c, "CHR$", false);
                  break;
 
             case 0xba: // MID$
-                 byte_to_keyword(c, "MID$");
+                 c+=byte_to_keyword(c, "MID$", false);
                  break;
 
             case 0xbb: // power
@@ -399,27 +447,27 @@ static char *decode_line(FILE *f) {
                  break;
 
             case 0xbc: // TAB
-                 byte_to_keyword(c, "TAB");
+                 c+=byte_to_keyword(c, "TAB", false);
                  break;
 
             case 0xbd: // greater than or equals
-                 byte_to_keyword(c, ">=");
+                 c+=byte_to_keyword(c, ">=", false);
                  break;
 
             case 0xbe: // less than or equals
-                 byte_to_keyword(c, "<=");
+                 c+=byte_to_keyword(c, "<=", false);
                  break;
 
             case 0xbf: // not equals
-                 byte_to_keyword(c, "<>");
+                 c+=byte_to_keyword(c, "<>", false);
                  break;
 
             case 0xc0: // STEP
-                 byte_to_keyword(c, " STEP ");
+                 c+=byte_to_keyword(c, " STEP ", false);
                  break;
 
             case 0xc1: // TO
-                 byte_to_keyword(c, " TO ");
+                 c+=byte_to_keyword(c, " TO ", false);
                  break;
 
             case 0xc2: // comma
@@ -435,14 +483,10 @@ static char *decode_line(FILE *f) {
                  break;
 
             case 0xc5: // THEN
-                 if (*(c-1) != ' ') { // formatting quirk
-                     *c = ' ';
-                     c++;
-                 }
-                 byte_to_keyword(c, "THEN ");
+                 c+=byte_to_keyword(c, "THEN ", true);
                  break;
 
-            case 0xc6: // lass than
+            case 0xc6: // less than
                  *c = '<';
                  break;
 
@@ -484,25 +528,24 @@ static char *decode_line(FILE *f) {
                  break;
 
             case 0xd1: // "it's a variable"
-                 byte_to_keyword(c, "");
-                 break;
+                 continue; // we don't map or save this, just skip the byte
 
-            case 0xd2: // "it's an int"
+            case 0xd2: // "it's a 2-byte int"
                  sprintf(formatted_val, "%d", get_int_value(f, &byte_cnt));
-                 byte_to_keyword(c, formatted_val);
+                 c+=byte_to_keyword(c, formatted_val, false);
                  break;
 
             case 0xd3: // "it's a float"
                  sprintf(formatted_val, "%f", get_float_value(f, &byte_cnt));
-                 byte_to_keyword(c, trim_float_str(formatted_val));
+                 c+=byte_to_keyword(c, trim_float_str(formatted_val), false);
                  break;
 
             case 0xd4: // SIN
-                 byte_to_keyword(c, "SIN");
+                 c+=byte_to_keyword(c, "SIN", false);
                  break;
 
             case 0xd5: // COS
-                 byte_to_keyword(c, "COS");
+                 c+=byte_to_keyword(c, "COS", false);
                  break;
 
             case 0xd6: // open paren
@@ -519,43 +562,43 @@ static char *decode_line(FILE *f) {
                  break;
 
             case 0xd8: // ATN
-                 byte_to_keyword(c, "ATN");
+                 c+=byte_to_keyword(c, "ATN", false);
                  break;
 
             case 0xd9: // EXP
-                 byte_to_keyword(c, "EXP");
+                 c+=byte_to_keyword(c, "EXP", false);
                  break;
 
             case 0xda: // LOG
-                 byte_to_keyword(c, "LOG");
+                 c+=byte_to_keyword(c, "LOG", false);
                  break;
 
             case 0xdb: // SQR
-                 byte_to_keyword(c, "SQR");
+                 c+=byte_to_keyword(c, "SQR", false);
                  break;
 
             case 0xdc: // INT
-                 byte_to_keyword(c, "INT");
+                 c+=byte_to_keyword(c, "INT", false);
                  break;
 
             case 0xdd: // PEEK
-                 byte_to_keyword(c, "PEEK");
+                 c+=byte_to_keyword(c, "PEEK", false);
                  break;
 
             case 0xde: // ABS
-                 byte_to_keyword(c, "ABS");
+                 c+=byte_to_keyword(c, "ABS", false);
                  break;
 
             case 0xdf: // RND
-                 byte_to_keyword(c, "RND");
+                 c+=byte_to_keyword(c, "RND", false);
                  break;
 
             case 0xe0: // USR
-                 byte_to_keyword(c, "USR");
+                 c+=byte_to_keyword(c, "USR", false);
                  break;
 
             case 0xe1: // INUM
-                 byte_to_keyword(c, "INUM");
+                 c+=byte_to_keyword(c, "INUM", false);
                  break;
 
             case 0xe2: // #
@@ -563,51 +606,59 @@ static char *decode_line(FILE *f) {
                  break;
 
             case 0xe3: // FNUM
-                 byte_to_keyword(c, "FNUM");
+                 c+=byte_to_keyword(c, "FNUM", false);
                  break;
 
             case 0xe4: // ASC
-                 byte_to_keyword(c, "ASC");
+                 c+=byte_to_keyword(c, "ASC", false);
                  break;
 
             case 0xe5: // LEN
-                 byte_to_keyword(c, "LEN");
+                 c+=byte_to_keyword(c, "LEN", false);
+                 break;
+
+            case 0xe6: // VAL - not MemberCHIP
+                 c+=byte_to_keyword(c, "VAL", false);
                  break;
 
             case 0xe7: // SGN
-                 byte_to_keyword(c, "SGN");
+                 c+=byte_to_keyword(c, "SGN", false);
                  break;
 
             case 0xe8: // MOD
-                 byte_to_keyword(c, "MOD");
+                 c+=byte_to_keyword(c, "MOD", false);
                  break;
 
             case 0xe9: // INP
-                 byte_to_keyword(c, "INP");
+                 c+=byte_to_keyword(c, "INP", false);
                  break;
 
-            case 0xea: // NOT
-                 byte_to_keyword(c, "NOT ");
+            case 0xea: // NOT (bitwise)
+                 c+=byte_to_keyword(c, "NOT ", false);
                  break;
 
             case 0xeb: // PI
-                 byte_to_keyword(c, "PI");
+                 c+=byte_to_keyword(c, "PI", false);
                  break;
 
             case 0xec: // FVAL
-                 byte_to_keyword(c, "FVAL");
+                 c+=byte_to_keyword(c, "FVAL", false);
+                 break;
+
+            case 0xed: // STR$ - not MemberCHIP
+                 c+=byte_to_keyword(c, "STR$", false);
                  break;
 
             case 0xee: // MEM
-                 byte_to_keyword(c, "MEM");
+                 c+=byte_to_keyword(c, "MEM", false);
                  break;
 
             case 0xef: // QST
-                 byte_to_keyword(c, "QST");
+                 c+=byte_to_keyword(c, "QST", false);
                  break;
 
             case 0xf0: // EF  
-                 byte_to_keyword(c, "EF");
+                 c+=byte_to_keyword(c, "EF", false);
                  break;
 
             default:
