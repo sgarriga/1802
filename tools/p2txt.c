@@ -188,15 +188,24 @@ static char *decode_line(FILE *f) {
                  byte_to_keyword(c, "CLS");
                  break;
 
+            case 0x83: // RUN
+                 byte_to_keyword(c, "RUN");
+                 break;
+
             case 0x84: // END
                  byte_to_keyword(c, "END");
                  if (line_num == 0xffff)
                      done = true; // "63335 END" is saved if there isn't an
-                                  // explicit last line with "END"!
+                                  // explicit last line with "END", but is
+                                  // not shown by LIST if it is entered
+                 break;
+
+            case 0x85: // LET
+                 byte_to_keyword(c, "LET ");
                  break;
 
             case 0x86: // PRINT
-                 if (*(c-1) != ' ') { // PRINT and GOTO have a formatting quirk
+                 if (*(c-1) != ' ') { // formatting quirk
                      *c = ' ';
                      c++;
                  }
@@ -204,7 +213,7 @@ static char *decode_line(FILE *f) {
                  break;
 
             case 0x87: // GOTO
-                 if (*(c-1) != ' ') { // PRINT and GOTO have a formatting quirk
+                 if (*(c-1) != ' ') { // formatting quirk
                      *c = ' ';
                      c++;
                  }
@@ -217,6 +226,12 @@ static char *decode_line(FILE *f) {
 
             case 0x89: // INPUT
                  byte_to_keyword(c, "INPUT ");
+                 // TODO investigate INPUT msg var format - do we need to force space
+                 // before var?
+                 break;
+
+            case 0x8a: // LIST
+                 byte_to_keyword(c, "LIST ");
                  break;
 
             case 0x8b: // GOSUB
@@ -225,6 +240,10 @@ static char *decode_line(FILE *f) {
 
             case 0x8c: // RETURN
                  byte_to_keyword(c, "RETURN");
+                 break;
+
+            case 0x8d: // WAIT
+                 byte_to_keyword(c, "WAIT ");
                  break;
 
             case 0x8e: // DIM
@@ -240,11 +259,43 @@ static char *decode_line(FILE *f) {
                  break;
 
             case 0x91: // FIXED
-                 byte_to_keyword(c, "FIXED ");
+                 byte_to_keyword(c, "FIXED");
+                 break;
+
+            case 0x92: // POKE
+                 byte_to_keyword(c, "POKE");
+                 break;
+
+            case 0x93: // DEG
+                 byte_to_keyword(c, "DEG");
+                 break;
+
+            case 0x94: // RAD
+                 byte_to_keyword(c, "RAD");
+                 break;
+
+            case 0x95: // STQ
+                 byte_to_keyword(c, "STQ ");
                  break;
 
             case 0x96: // DEFINT
                  byte_to_keyword(c, "DEFINT ");
+                 break;
+
+            case 0x97: // PSAVE
+                 byte_to_keyword(c, "PSAVE");
+                 break;
+
+            case 0x98: // PLOAD
+                 byte_to_keyword(c, "PLOAD");
+                 break;
+
+            case 0x99: // DEFUS
+                 byte_to_keyword(c, "DEFUS ");
+                 break;
+
+            case 0x9a: // EOP
+                 byte_to_keyword(c, "EOP");
                  break;
 
             case 0x9b: // DATA
@@ -252,19 +303,91 @@ static char *decode_line(FILE *f) {
                  break;
 
             case 0x9c: // READ
-                 byte_to_keyword(c, "READ");
+                 byte_to_keyword(c, "READ ");
                  break;
 
             case 0x9d: // RESTORE
                  byte_to_keyword(c, "RESTORE");
                  break;
 
+            case 0x9e: // EOD
+                 byte_to_keyword(c, "EOD");
+                 break;
+
             case 0x9f: // CLD
                  byte_to_keyword(c, "CLD");
                  break;
 
+            case 0xa2: // EINT
+                 byte_to_keyword(c, "EINT ");
+                 break;
+
+            case 0xa3: // DISINT
+                 byte_to_keyword(c, "DISINT");
+                 break;
+
+            case 0xa4: // DMAPT
+                 byte_to_keyword(c, "DMAPT ");
+                 break;
+
+            case 0xa7: // TRACE
+                 byte_to_keyword(c, "TRACE ");
+                 break;
+
+            case 0xa8: // CALL
+                 byte_to_keyword(c, "CALL");
+                 break;
+
+            case 0xab: // MEM
+                 byte_to_keyword(c, "MEM");
+                 break;
+
+            case 0xad: // BYE
+                 byte_to_keyword(c, "BYE");
+                 break;
+
             case 0xae: // EXIT
-                 byte_to_keyword(c, "EXIT ");
+                 byte_to_keyword(c, "EXIT");
+                 break;
+
+            case 0xb1: // RENUMBER
+                 byte_to_keyword(c, "RENUMBER ");
+                 break;
+
+            case 0xb2: // EDIT
+                 byte_to_keyword(c, "EDIT ");
+                 break;
+
+            case 0xb3: // FORMAT
+                 byte_to_keyword(c, "FORMAT ");
+                 break;
+
+            case 0xb5: // AND
+                 if (*(c-1) != ' ') { // formatting quirk
+                     *c = ' ';
+                     c++;
+                 }
+                 byte_to_keyword(c, "AND ");
+                 break;
+
+            case 0xb6: // XOR
+                 if (*(c-1) != ' ') { // formatting quirk
+                     *c = ' ';
+                     c++;
+                 }
+                 byte_to_keyword(c, "XOR ");
+                 break;
+
+            case 0xb7: // OR
+                 if (*(c-1) != ' ') { // formatting quirk
+                     *c = ' ';
+                     c++;
+                 }
+                 byte_to_keyword(c, "OR ");
+                 break;
+
+            case 0xb9: // CHR$
+                 byte_to_keyword(c, "CHR$");
                  break;
 
             case 0xba: // MID$
@@ -312,6 +435,10 @@ static char *decode_line(FILE *f) {
                  break;
 
             case 0xc5: // THEN
+                 if (*(c-1) != ' ') { // formatting quirk
+                     *c = ' ';
+                     c++;
+                 }
                  byte_to_keyword(c, "THEN ");
                  break;
 
@@ -352,6 +479,10 @@ static char *decode_line(FILE *f) {
                  *c = '"';
                  break;
 
+            case 0xd0: // @
+                 *c = '@';
+                 break;
+
             case 0xd1: // "it's a variable"
                  byte_to_keyword(c, "");
                  break;
@@ -370,6 +501,10 @@ static char *decode_line(FILE *f) {
                  byte_to_keyword(c, "SIN");
                  break;
 
+            case 0xd5: // COS
+                 byte_to_keyword(c, "COS");
+                 break;
+
             case 0xd6: // open paren
                  *c = '(';
                  break;
@@ -381,6 +516,14 @@ static char *decode_line(FILE *f) {
                  byte_cnt++;
                  c++;
                  *c = '$';
+                 break;
+
+            case 0xd8: // ATN
+                 byte_to_keyword(c, "ATN");
+                 break;
+
+            case 0xd9: // EXP
+                 byte_to_keyword(c, "EXP");
                  break;
 
             case 0xda: // LOG
@@ -395,6 +538,10 @@ static char *decode_line(FILE *f) {
                  byte_to_keyword(c, "INT");
                  break;
 
+            case 0xdd: // PEEK
+                 byte_to_keyword(c, "PEEK");
+                 break;
+
             case 0xde: // ABS
                  byte_to_keyword(c, "ABS");
                  break;
@@ -403,16 +550,44 @@ static char *decode_line(FILE *f) {
                  byte_to_keyword(c, "RND");
                  break;
 
+            case 0xe0: // USR
+                 byte_to_keyword(c, "USR");
+                 break;
+
+            case 0xe1: // INUM
+                 byte_to_keyword(c, "INUM");
+                 break;
+
+            case 0xe2: // #
+                 *c = '#';
+                 break;
+
             case 0xe3: // FNUM
                  byte_to_keyword(c, "FNUM");
+                 break;
+
+            case 0xe4: // ASC
+                 byte_to_keyword(c, "ASC");
                  break;
 
             case 0xe5: // LEN
                  byte_to_keyword(c, "LEN");
                  break;
 
+            case 0xe7: // SGN
+                 byte_to_keyword(c, "SGN");
+                 break;
+
             case 0xe8: // MOD
                  byte_to_keyword(c, "MOD");
+                 break;
+
+            case 0xe9: // INP
+                 byte_to_keyword(c, "INP");
+                 break;
+
+            case 0xea: // NOT
+                 byte_to_keyword(c, "NOT ");
                  break;
 
             case 0xeb: // PI
@@ -421,6 +596,18 @@ static char *decode_line(FILE *f) {
 
             case 0xec: // FVAL
                  byte_to_keyword(c, "FVAL");
+                 break;
+
+            case 0xee: // MEM
+                 byte_to_keyword(c, "MEM");
+                 break;
+
+            case 0xef: // QST
+                 byte_to_keyword(c, "QST");
+                 break;
+
+            case 0xf0: // EF  
+                 byte_to_keyword(c, "EF");
                  break;
 
             default:
