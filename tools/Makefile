@@ -1,14 +1,20 @@
+CC = gcc
+LIBS = -lm
+
+CXX = g++
+CXXFLAGS = -std=c++17 -O2
+
 .PHONY: all
 all: renum reval p2txt
 
 renum: renum.cpp
-	g++ -std=c++17 renum.cpp -O2 -o renum
+	$(CXX) $(CXXFLAGS) $< -o $@
 
 reval: reval.cpp
-	g++ -std=c++17 reval.cpp -O2 -o reval
+	$(CXX) $(CXXFLAGS) $< -o $@
 
 p2txt: p2txt.c
-	gcc p2txt.c -o p2txt -lm
+	$(CC) $< -o $@ $(LIBS)
 
 .PHONY: clean
 clean: 
