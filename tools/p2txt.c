@@ -42,7 +42,7 @@ static void skip_header(FILE *f) {
     for (uint8_t i=HEADER_BYTE_CNT; i>0; i--) {
         c = get_next_byte(f);
         if (show_header)
-            printf("%02x%s", (i==0)?"\n":", ");       
+            printf("%02x%s", c, (i==0)?"\n":", ");       
     }
 }
 
@@ -155,7 +155,7 @@ static uint8_t byte_to_keyword(int8_t *io, char *i, bool prespace) {
 //
 static char *decode_line(FILE *f) {
     static char line_buffer[256]; // the line of source listing
-    static char formatted_val[8]; // used when we have to format numeric values
+    static char formatted_val[16]; // used when we have to format numeric values
     uint8_t *c = NULL;
     uint16_t line_num = 0;
     uint8_t line_len = 0;
