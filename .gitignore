@@ -1,4 +1,6 @@
 tools/renum
 tools/reval
 tools/p2txt
+tools/PSAVE*
+tools/load-bas
 

@@ -5,7 +5,10 @@ CXX = g++
 CXXFLAGS = -std=c++17 -O2
 
 .PHONY: all
-all: renum reval p2txt
+all: renum reval p2txt load-bas
+
+load-bas: load-bas.c
+	$(CC) $< -o $@ $(LIBS)
 
 renum: renum.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@
