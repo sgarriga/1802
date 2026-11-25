@@ -16,7 +16,7 @@ Defaults: start=100, step=10, boundary=1000, output=stdout
 
 ## mchip - wrapper script around minicom that tries to figure out the TTY
 
-reval - validate and rename BASIC variables
+## reval - validate and rename BASIC variables
 
 Usage: ./reval [options] inputfile
 
@@ -33,3 +33,16 @@ Usage: ./p2txt inputfile
 
 Output goes to stdout - redirect if you want to save it
 WORK IN PROGRESS
+
+## load-bas - loads a .BAS file into the MemberCHIP memory
+
+Usage: ./load-bas [opts] filename
+Options:
+  -?		show usage
+  -c interval	set inter character delay (ms)
+		default is 10
+  -d device	specify device (if not /dev/serial0)
+  -l interval	set end of line delay (ms)
+		default is 250
+  -v		verbose output
+  -w		warm start BASIC
